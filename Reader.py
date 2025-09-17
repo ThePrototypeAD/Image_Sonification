@@ -227,34 +227,34 @@ class Image_read(object): #read the image in RGB, HSV, and greyscale color space
 
   
 #%% testing class object
-
-test_image = Image_read("helix_nebula_test.jpg")
-
-plt.imshow(test_image.image_rgb)
-plt.show()
-plt.imshow(test_image.image_grey, cmap='Greys_r')
-plt.show()
-plt.imshow(test_image.image_hls)
-plt.show()
-
-
-test_image.resize(height=88, aspect_preserve=True)
-plt.imshow(test_image.image_rgb)
-plt.show()
-plt.imshow(test_image.image_grey, cmap='Greys_r')
-plt.show()
-plt.imshow(test_image.image_hls)
-plt.show()
+if __name__ == '__main__':
+    test_image = Image_read("helix_nebula_test.jpg")
     
-test_mask = np.zeros_like(test_image.image_rgb)
-test_mask = test_mask[:,:,1].astype('bool')
-
-test_image.threshold(local_mask = test_mask, global_mask = test_mask, message=True)
-
-plt.imshow(test_image.image_rgb_global_threshold)
-plt.show()
-plt.imshow(test_image.image_rgb_local_threshold)
-plt.show()    
+    plt.imshow(test_image.image_rgb)
+    plt.show()
+    plt.imshow(test_image.image_grey, cmap='Greys_r')
+    plt.show()
+    plt.imshow(test_image.image_hls)
+    plt.show()
+    
+    
+    test_image.resize(height=88, aspect_preserve=True)
+    plt.imshow(test_image.image_rgb)
+    plt.show()
+    plt.imshow(test_image.image_grey, cmap='Greys_r')
+    plt.show()
+    plt.imshow(test_image.image_hls)
+    plt.show()
+        
+    test_mask = np.zeros_like(test_image.image_rgb)
+    test_mask = test_mask[:,:,1].astype('bool')
+    
+    test_image.threshold(local_mask = test_mask, global_mask = test_mask, message=True)
+    
+    plt.imshow(test_image.image_rgb_global_threshold)
+    plt.show()
+    plt.imshow(test_image.image_rgb_local_threshold)
+    plt.show()    
 
 # global_threshold, local_threshold = test_image.threshold_mask()
 # plt.imshow(global_threshold, cmap='Greys_r')
