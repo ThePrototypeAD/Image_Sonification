@@ -6,15 +6,17 @@ Created on Wed Sep 17 17:01:57 2025
 """
 
 import numpy as np
+from IPython.display import display
 
-class Oscillator:
-    def __init__(self, waveform='sine', freq=440, rate=44100, duty=0.5, phase=0.0):
+#%%
+class Oscillator:               #skeleton 
+    def __init__(self, waveform='sine', freq=440, rate=44100, duty=0.5, phase=0.0): #phase 0-1, 
         self.freq = freq
         self.rate = rate
         self.phase = phase % 1.0 
         self.increment = freq / rate
         self.waveform = waveform
-        self.duty = duty  # For square wave
+        self.duty = duty  #square wave duty cycle
 
 
     def __call__(self):
@@ -25,17 +27,16 @@ class Oscillator:
             val = np.sin(2 * np.pi * t)
 
         elif self.waveform == 'saw':
-            val = 2 * (t % 1.0) - 1  # range [-1, 1]
+            val = 2 * (t % 1.0) - 1  
 
         elif self.waveform == 'triangle':
-            val = 2 * abs(2 * (t % 1.0) - 1) - 1  # range [-1, 1]
+            val = 2 * abs(2 * (t % 1.0) - 1) - 1  
 
         elif self.waveform == 'square':
             val = 1.0 if (t % 1.0) < self.duty else -1.0
 
-
-        else:
-            raise ValueError(f"Unsupported waveform: {self.waveform}")
+        # else:
+        #     raise ValueError(f"Unsupported waveform: {self.waveform}")
 
         # Advance phase
         self.phase += self.increment
@@ -43,6 +44,106 @@ class Oscillator:
             self.phase -= 1.0
 
         return val
+
+
+
+
+
+def frequency_gen (tuning_freq = 440,      # base tuning frequency
+                   tuning_ratio = None,    # use this custom tuning, if kept Nonetype, proceed to equal temperament accepts array!
+                   tones = 12,             # how many keys are in an octave
+                   keys = 88,              # how many total keys if keys == all or max, do all frequencies.
+                   lowest_limit = 20,      # lowest limit of human hearing
+                   highest_limit = 20000,  # highest limit of human hearing
+                   invert_freq = True,      # invert the order of frequency
+                   messages = False):       # enable/disable print messages
+
+#if left blank, frequency_gen will generate ordinary 12-TET, with tuning frequency A4=440 
+# allows microtonality with the semitone_octave variable   
+# limitation #1 : lowest possible frequency is always on, upper frequencies are sacrified
+# limitation #2 : can only do equal temperament. Any other style of tuning are not yet supported
+#        fixed limitation #2
+
+    # grabbing the possible amount of octaves 
+    # also check the lowest and highest frequency
+    lowest_frequency = tuning_freq
+    highest_frequency = tuning_freq
+    div_power = 0
+    mult_power = 0
+
+    #check how many octaves are needed
+    while lowest_frequency > (lowest_limit*2):
+        lowest_frequency = lowest_frequency/2
+        div_power -=1
+
+
+    while highest_frequency < (highest_limit/2):
+        highest_frequency = highest_frequency*2
+        mult_power += 1
+    
+    octaves = np.arange(div_power, mult_power).astype(float)
+    octaves_freq_mult = np.power(2, octaves)
+    
+    
+    #grabing the intervals according to the tones
+    
+    if isinstance(tuning_ratio, (list, np.ndarray)): #check if tuning ratio is provided in the type of list or nd.array
+        if messages:
+            tuning_ratio = np.array(tuning_ratio).astype(float)
+            print ('using provided tuning ratio = ', tuning_ratio)
+            print()
+        
+        if len(tuning_ratio) < 2 or np.max(tuning_ratio)>=2 or np.min(tuning_ratio)<1:
+            return print('Tuning ratio provided but is invalid. Check the tuning ratio')
+    
+    elif tones > 0 and tuning_ratio == None:
+        if messages:
+            print('no tuning ratio provided.')
+            print('using', tones, "tones equal temperament")
+            print()
+        
+        interval = np.arange(0, tones)
+        tuning_ratio = np.power(2, interval / len(interval))
+    
+    else: 
+        return print('invalid equal temperament tones or tuning ratio')
+               
+
+    all_intervals = np.concatenate([tuning_ratio * octaves_freq_mult 
+                                    for octaves_freq_mult in octaves_freq_mult], 
+                                   axis=None)
+
+    if (keys == 'all' or keys == 'max'):
+        return tuning_freq*all_intervals
+
+    elif len(all_intervals) < keys:
+        if messages:
+            print ("Current setting is inaudible to human hearing")
+            print ("using possible maximum number of keys = ", len(all_intervals), " keys")
+        result_freq = tuning_freq*all_intervals
+    
+    else:
+        all_intervals = all_intervals[0:keys]
+        result_freq = tuning_freq*all_intervals
+    
+    if invert_freq:
+        return result_freq[::-1]
+    else : 
+        return result_freq
+
+
+def generate_sample (osc, sample_rate = 44100, time = 1): 
+        # generate sample for the oscillator
+        #time = in second, how many sample rate in a second
+    if callable(osc):
+        return [osc() for _ in range(int(sample_rate*time))]
+    else:
+        # osc is iterator or iterable
+        if not hasattr(osc, '__next__'):
+            osc = iter(osc)
+        return [next(osc) for _ in range(int(sample_rate*time))]
+
+
 
 #%%
 if __name__ == '__main__':
@@ -70,40 +171,20 @@ if __name__ == '__main__':
     plt.plot(s_all)
     plt.show()
 
-
-from tqdm import tqdm 
-
-#modifying getval function
-def getval_np1(osc, count=44100):
-    if not hasattr(osc, '__next__'):
-        osc = iter(osc)
-    return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
-
-def getval_np(osc, count=44100, it=False):
-    if it: osc = iter(osc)
-    return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
-
-def getval_np2(osc, count=44100):
-    # Check if osc is callable (function), else assume iterator
-    if callable(osc):
-        return [osc() for _ in range(count)]
-    else:
-        # osc is iterator or iterable
+    
+    from tqdm import tqdm 
+    
+    #modifying getval function
+    def getval_np1(osc, count=44100):
         if not hasattr(osc, '__next__'):
             osc = iter(osc)
-        return [next(osc) for _ in range(count)]
-
-#checking benchmark
-
-
-
-
-
-#initialize the array
-wave_point = int(44100/10) #0.1 seconds for each sample
-generator_arr = np.zeros(0)
-
-def getval_np2(osc, count=44100): #generate 1 second sample by default
+        return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
+    
+    def getval_np(osc, count=44100, it=False):
+        if it: osc = iter(osc)
+        return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
+    
+    def getval_np2(osc, count=44100):
         # Check if osc is callable (function), else assume iterator
         if callable(osc):
             return [osc() for _ in range(count)]
@@ -113,37 +194,57 @@ def getval_np2(osc, count=44100): #generate 1 second sample by default
                 osc = iter(osc)
             return [next(osc) for _ in range(count)]
     
-points = int(44100/10)
-
-hue_arr = np.linspace(0, 180, num=360) #using the cv2 hue calculation, 0-180
-
-duty_arr = np.zeros_like(hue_arr)
-
-for i in range(len(duty_arr)):
-    if hue_arr[i]<=150: 
-        duty_arr[i] = (-hue_arr[i]/(2*150))+0.5
-    elif hue_arr[i]>150:
-        duty_arr[i] = ((hue_arr[i]-150)/(2*30))
-
-
-
-
-#make the 0.5 = red, 
-init_phase = 0
-
-for i in tqdm(range(len(duty_arr))):
-
-    gen = Oscillator(waveform='square', freq=440, rate=44100, duty=duty_arr[i], phase=init_phase)#start
-    gen_points = (getval_np2(gen)[:wave_point]) 
-    init_phase = gen.phase
+    #checking benchmark
     
-        # generating points for gen is slow... -> generator itself is kinda slow... time to optimize this to my use
-        # square oscillation is slow!
-
-    generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
-
-wave_to_file(generator_arr, fname='check1_chatgpt') #this is correct
-# todo : employ low pass filter
+    
+    
+    
+    
+    #initialize the array
+    wave_point = int(44100/10) #0.1 seconds for each sample
+    generator_arr = np.zeros(0)
+    
+    def getval_np2(osc, count=44100): #generate 1 second sample by default
+            # Check if osc is callable (function), else assume iterator
+            if callable(osc):
+                return [osc() for _ in range(count)]
+            else:
+                # osc is iterator or iterable
+                if not hasattr(osc, '__next__'):
+                    osc = iter(osc)
+                return [next(osc) for _ in range(count)]
+        
+    points = int(44100/10)
+    
+    hue_arr = np.linspace(0, 180, num=360) #using the cv2 hue calculation, 0-180
+    
+    duty_arr = np.zeros_like(hue_arr)
+    
+    for i in range(len(duty_arr)):
+        if hue_arr[i]<=150: 
+            duty_arr[i] = (-hue_arr[i]/(2*150))+0.5
+        elif hue_arr[i]>150:
+            duty_arr[i] = ((hue_arr[i]-150)/(2*30))
+    
+    
+    
+    
+    #make the 0.5 = red, 
+    init_phase = 0
+    
+    for i in tqdm(range(len(duty_arr))):
+    
+        gen = Oscillator(waveform='square', freq=440, rate=44100, duty=duty_arr[i], phase=init_phase)#start
+        gen_points = (getval_np2(gen)[:wave_point]) 
+        init_phase = gen.phase
+        
+            # generating points for gen is slow... -> generator itself is kinda slow... time to optimize this to my use
+            # square oscillation is slow!
+    
+        generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
+    
+    wave_to_file(generator_arr, fname='check1_chatgpt') #this is correct
+    # todo : employ low pass filter
     
     
     
