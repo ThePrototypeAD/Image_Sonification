@@ -118,15 +118,19 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     from scipy.io import wavfile
     sample_rate = 44100
-    duty_val = np.linspace(0, 1, 100) #0.01 duty cycle sweep
+    duty_val = np.linspace(0, 0.5, 100) #0.01 duty cycle sweep
     time = 0.1
     generator_arr = np.zeros(0)
+    total_wave = np.zeros(int(sample_rate*time))
     
     for vals in duty_val:
         sq_gen = Oscillator(waveform='square', freq=440, rate=44100, duty=vals, phase=0)#start
         gen_points = np.array(generate_sample(sq_gen, time=time)) 
             
         generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
+        # total_wave += gen_points
+    
+    # total_wave = total_wave/np.max(abs(total_wave))
 
     to_16 = lambda wav, amp: np.int16(wav * amp * (2**15 - 1))
     def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
@@ -139,6 +143,30 @@ if __name__ == "__main__":
     
         wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
 
-    wave_to_file(generator_arr, fname='wave_check_duty_cycle')
+    wave_to_file(generator_arr, fname='wave_check_duty_cycle_05')
+    # wave_to_file(total_wave, fname='wave_check_duty_cycle_addition_0.5')
     
+    
+#%% draw array
+if __name__ == "__main__":
+    import cv2 as cv          # adaptive thresholding -> in theory, cv can handle everything that skimage uses, well prolly not the save image procedure
+    import numpy as np        # array handlings
+    import skimage.color      # global thresholding
+    import skimage.filters
+    import skimage.io
+    import skimage.transform
+
+    import matplotlib.pyplot as plt
+    
+    image_hls = np.zeros((10, 180, 3))
+    test_hue = np.linspace(0, 180, 180)
+    for i in range(10):
+        image_hls[i, :, 0] = test_hue[:]
+        image_hls[i, :, 1] = 128
+        image_hls[i, :, 2] = 255
+    image_hls = image_hls.astype('uint8')
+    
+    image_rgb = cv.cvtColor(image_hls, cv.COLOR_HLS2RGB) #check the coordinate again tho
+    plt.imshow(image_rgb)
+    plt.show()
     
