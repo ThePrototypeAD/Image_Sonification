@@ -34,6 +34,11 @@ class Oscillator:               #skeleton
 
         elif self.waveform == 'square':
             val = 1.0 if (t % 1.0) < self.duty else -1.0
+        
+        elif self.waveform == 'square_norm': # -> normalized square wave
+                                             # need failsafe is self.duty = 0
+                            
+            val = 1.0 if (t % 1.0) < self.duty else (self.duty/(1-self.duty))*-1.0 
 
         # else:
         #     raise ValueError(f"Unsupported waveform: {self.waveform}")
