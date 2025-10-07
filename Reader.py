@@ -17,9 +17,12 @@ import skimage.transform
 
 import matplotlib.pyplot as plt
 
+#import 1d gilbert
+import sys
+sys.path.insert(1, r"C:\Users\deand\__Github_clones")
 
+import gilbert.gilbert2d as gilbert
 
-#%%
 
 class Image_read(object): #read the image in RGB, HSV, and greyscale color space, perhaps switch HSL to HSV
     def __init__(self, filename, message = False):
@@ -139,7 +142,6 @@ class Image_read(object): #read the image in RGB, HSV, and greyscale color space
             global_mask, _ = self.threshold_mask()
 
     
-    
         if color_space == "greyscale" :
             if message:
                 print("Performing image threshold in Greyscale color space")
@@ -177,7 +179,7 @@ class Image_read(object): #read the image in RGB, HSV, and greyscale color space
             
         else:
             if message:
-                print("performing image threshold in Grayscale, HSL, and RGB color space")
+                print("performing image threshold in Grayscale, HLS, and RGB color space")
                 
             self.image_rgb_local_threshold = self.image_rgb.copy()
             self.image_rgb_local_threshold[local_mask,:] = [0,0,0]
@@ -224,156 +226,179 @@ class Image_read(object): #read the image in RGB, HSV, and greyscale color space
                 
         #     except (AttributeError):
         #         pass
-
-  
-#%% testing class object
-if __name__ == '__main__':
-    test_image = Image_read("helix_nebula_test.jpg")
+   
     
-    plt.imshow(test_image.image_rgb)
-    plt.show()
-    plt.imshow(test_image.image_grey, cmap='Greys_r')
-    plt.show()
-    plt.imshow(test_image.image_hls)
-    plt.show()
-    
-    
-    test_image.resize(height=88, aspect_preserve=True)
-    plt.imshow(test_image.image_rgb)
-    plt.show()
-    plt.imshow(test_image.image_grey, cmap='Greys_r')
-    plt.show()
-    plt.imshow(test_image.image_hls)
-    plt.show()
+    def gilbert_scan (self, color_space = None, message = False, threshold = False): #convert image to 1d using gilbert scan (see Github_link)
+        #todo: check with thresholded image
+        # scan works, with thresholded image too
+            
+        x_width = self.width
+        y_height = self.height
         
-    test_mask = np.zeros_like(test_image.image_rgb)
-    test_mask = test_mask[:,:,1].astype('bool')
-    
-    test_image.threshold(local_mask = test_mask, global_mask = test_mask, message=True)
-    
-    plt.imshow(test_image.image_rgb_global_threshold)
-    plt.show()
-    plt.imshow(test_image.image_rgb_local_threshold)
-    plt.show()    
+        gilbert_x = []
+        gilbert_y = []
 
-# global_threshold, local_threshold = test_image.threshold_mask()
-# plt.imshow(global_threshold, cmap='Greys_r')
-# plt.show()
-# plt.imshow(local_threshold, cmap='Greys_r')
-# plt.show()  
+        for x, y in gilbert.gilbert2d(x_width, y_height):
+            gilbert_x.append(x)
+            gilbert_y.append(y)
+        
+        dim_1d = len(gilbert_x)
+        
+        
+        if color_space == "greyscale" :
+            if message:
+                print("Performing gilbert scan in Greyscale color space")
+            
+            self.image_gilbert1d_grey = np.zeros((dim_1d))
+            
+            for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                self.image_gilbert1d_grey[x] = self.image_grey[gilbert_y[x], gilbert_x[x]]
+            
+            #test threshold, need failsafe for no thresholded image
+            if threshold:
+                try:
+                    self.image_gilbert1d_grey_local_threshold = np.zeros((dim_1d))
+                    self.image_gilbert1d_grey_global_threshold = np.zeros((dim_1d))
+                
+                    for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                        self.image_gilbert1d_grey_local_threshold[x] = self.image_grey_local_threshold[gilbert_y[x], gilbert_x[x]]
+                        self.image_gilbert1d_grey_global_threshold[x] = self.image_grey_global_threshold[gilbert_y[x], gilbert_x[x]]
+                
+                except AttributeError:
+                    print ("No thresholded image in Greyscale color space")
+                    pass
+            #end test threshold
+            
+            
+        elif color_space == "RGB" or color_space == "rgb":
+            if message:
+                print("Performing gilbert scan in RGB color space")
+            
+            self.image_gilbert1d_rgb = np.zeros((dim_1d, 3))
+            
+            for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                
+                self.image_gilbert1d_rgb[x, 0] = self.image_rgb[gilbert_y[x], gilbert_x[x], 0]
+                self.image_gilbert1d_rgb[x, 1] = self.image_rgb[gilbert_y[x], gilbert_x[x], 1]
+                self.image_gilbert1d_rgb[x, 2] = self.image_rgb[gilbert_y[x], gilbert_x[x], 2]
+            
+            if threshold:
+                 try:
+                     self.image_gilbert1d_rgb_global_threshold = np.zeros((dim_1d, 3))
+                     self.image_gilbert1d_rgb_local_threshold = np.zeros((dim_1d, 3))
 
+                 
+                     for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                         self.image_gilbert1d_rgb_global_threshold[x, 0] = self.image_rgb_global_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_rgb_global_threshold[x, 1] = self.image_rgb_global_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_rgb_global_threshold[x, 2] = self.image_rgb_global_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                         
+                         self.image_gilbert1d_rgb_local_threshold[x, 0] = self.image_rgb_local_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_rgb_local_threshold[x, 1] = self.image_rgb_local_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_rgb_local_threshold[x, 2] = self.image_rgb_local_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                 
+                 except AttributeError:
+                     print ("No thresholded image in RGB color space")
+                     pass       
+        
+        elif color_space == "HLS" or color_space == "hls":
+            if message:
+                print("Performing gilbert scan in HLS color space")
+            
+            self.image_gilbert1d_hls = np.zeros((dim_1d, 3))
+            
+            for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                
+                self.image_gilbert1d_hls[x, 0] = self.image_hls[gilbert_y[x], gilbert_x[x], 0]
+                self.image_gilbert1d_hls[x, 1] = self.image_hls[gilbert_y[x], gilbert_x[x], 1]
+                self.image_gilbert1d_hls[x, 2] = self.image_hls[gilbert_y[x], gilbert_x[x], 2]          
 
+            if threshold:
+                 try:
+                     self.image_gilbert1d_hls_global_threshold = np.zeros((dim_1d, 3))
+                     self.image_gilbert1d_hls_local_threshold = np.zeros((dim_1d, 3))
 
+                 
+                     for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                         self.image_gilbert1d_hls_global_threshold[x, 0] = self.image_hls_global_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_hls_global_threshold[x, 1] = self.image_hls_global_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_hls_global_threshold[x, 2] = self.image_hls_global_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                         
+                         self.image_gilbert1d_hls_local_threshold[x, 0] = self.image_hls_local_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_hls_local_threshold[x, 1] = self.image_hls_local_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_hls_local_threshold[x, 2] = self.image_hls_local_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                 
+                 except AttributeError:
+                     print ("No thresholded image in HLS color space")
+                     pass            
+            
+        else:
+            if message:
+                print("performing image threshold in Grayscale, HLS, and RGB color space")
+                
+            self.image_gilbert1d_grey = np.zeros((dim_1d))
+            self.image_gilbert1d_hls = np.zeros((dim_1d, 3))
+            self.image_gilbert1d_rgb = np.zeros((dim_1d, 3))
+            
+            for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                self.image_gilbert1d_grey[x] = self.image_grey[gilbert_y[x], gilbert_x[x]]
+                
+                self.image_gilbert1d_hls[x, 0] = self.image_hls[gilbert_y[x], gilbert_x[x], 0]
+                self.image_gilbert1d_hls[x, 1] = self.image_hls[gilbert_y[x], gilbert_x[x], 1]
+                self.image_gilbert1d_hls[x, 2] = self.image_hls[gilbert_y[x], gilbert_x[x], 2]
 
+                self.image_gilbert1d_rgb[x, 0] = self.image_rgb[gilbert_y[x], gilbert_x[x], 0]
+                self.image_gilbert1d_rgb[x, 1] = self.image_rgb[gilbert_y[x], gilbert_x[x], 1]
+                self.image_gilbert1d_rgb[x, 2] = self.image_rgb[gilbert_y[x], gilbert_x[x], 2]
 
-# test_image.resize(height=19)
-# test_image.restore()
-# plt.imshow(test_image.image_rgb)
-# plt.show()
-# plt.imshow(test_image.image_grey, cmap='Greys_r')
-# plt.show()
-# plt.imshow(test_image.image_hls)
-# plt.show()
-  
-# test_image.resize(height=19)
-# test_image.resize(height=302)
-# test_image.restore()
-# plt.imshow(test_image.image_rgb)
-# plt.show()
-# plt.imshow(test_image.image_grey, cmap='Greys_r')
-# plt.show()
-# plt.imshow(test_image.image_hls)
-# plt.show()
+            if threshold:
+                try:
+                    self.image_gilbert1d_grey_local_threshold = np.zeros((dim_1d))
+                    self.image_gilbert1d_grey_global_threshold = np.zeros((dim_1d))
+                
+                    for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                        self.image_gilbert1d_grey_local_threshold[x] = self.image_grey_local_threshold[gilbert_y[x], gilbert_x[x]]
+                        self.image_gilbert1d_grey_global_threshold[x] = self.image_grey_global_threshold[gilbert_y[x], gilbert_x[x]]
+                
+                except AttributeError:
+                    print ("No thresholded image in Greyscale color space")
+                    pass
+                
+                try:
+                     self.image_gilbert1d_rgb_global_threshold = np.zeros((dim_1d, 3))
+                     self.image_gilbert1d_rgb_local_threshold = np.zeros((dim_1d, 3))
 
-    
-#%% check fx 2
-if __name__ == '__main__':
-    image = skimage.io.imread("helix_nebula_test.jpg") #check with cv instead of skimage
-    
-    
-    plt.imshow(image)
-    plt.show()
-    
-    image = skimage.transform.resize(image, (88,88))
-    image *=255
-    image = image.astype('uint8')
-    
-    plt.imshow(image)
-    plt.show()
-    
-    #convert to HSL
-    image_hls = cv.cvtColor(image, cv.COLOR_RGB2HLS)
-    image_lightness = image_hls[:, :, 1] #grab lightness value for thresholding
-    plt.imshow(image_lightness, cmap='Greys_r')
-    plt.title('HLS lightness channel')
-    plt.show()
+                 
+                     for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                         self.image_gilbert1d_rgb_global_threshold[x, 0] = self.image_rgb_global_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_rgb_global_threshold[x, 1] = self.image_rgb_global_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_rgb_global_threshold[x, 2] = self.image_rgb_global_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                         
+                         self.image_gilbert1d_rgb_local_threshold[x, 0] = self.image_rgb_local_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_rgb_local_threshold[x, 1] = self.image_rgb_local_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_rgb_local_threshold[x, 2] = self.image_rgb_local_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                 
+                except AttributeError:
+                     print ("No thresholded image in RGB color space")
+                     pass  
+                 
+                try:
+                     self.image_gilbert1d_hls_global_threshold = np.zeros((dim_1d, 3))
+                     self.image_gilbert1d_hls_local_threshold = np.zeros((dim_1d, 3))
 
-    #check comparison with HSV and greyscale
-    image_grey =  skimage.color.rgb2gray(image[:, :, :3])
-    plt.imshow(image_grey, cmap='Greys_r')
-    plt.title('Greyscale image')
-    plt.show()
-    
-    
-    image_hsv  = cv.cvtColor(image, cv.COLOR_RGB2HSV)
-    image_value = image_hsv[:, :, 2]
-    plt.imshow(image_value, cmap='Greys_r')
-    plt.title('HSV value channel')
-    plt.show()
-    
-    ''' 
-    three methods are not necessarily equal, but I guess the L channel is viable enough...
-    need equation to convert greyscale to L or V channel values
-    
-    p.s. also deprecating HSV channel for sonification
-        -> lightness (black/white) is ambiguous in HSV space
-        -> Use HSL (or HLS in cv2 context) to more appropriately represents black/white
-    '''
-    
-    #checking value threshold (global)
-    threshold_val = skimage.filters.threshold_otsu(image_lightness)
-    threshold_mask = image_lightness < threshold_val
-    plt.imshow(threshold_mask, cmap='Greys_r')
-    plt.show()
-    
-    image_copy = image_hls.copy()
-    image_copy[threshold_mask,:] = [0,0,0]
-    
-    # #morphological transform
-    # kernel = cv.getStructuringElement(cv.MORPH_RECT,(5,5))
-    # opening = cv.morphologyEx(threshold_, cv.MORPH_OPEN, kernel)
-    
-    #view results
-    plt.imshow(image_copy, cmap='Greys_r')
-    plt.show()
-    
-    
-# after careful consideration, no need to do the length
-# just perform the thresholding, then perform the morphological transform!
-    
-    #checking value threshold (local)
-    # median_blur = cv.medianBlur(image_lightness, 1)
-    adapt_threshold = cv.adaptiveThreshold(image_lightness,1,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,3,2)
-    plt.imshow(adapt_threshold, cmap='Greys_r')
-    plt.show()
-    
-    image_copy = image_hls.copy()
-    adapt_threshold = adapt_threshold.astype('bool')
-    image_copy[adapt_threshold,:] = [0,0,0]
-    
-    #view results
-    plt.imshow(image_copy, cmap='Greys_r')
-    plt.show()
-    
+                 
+                     for x in range(dim_1d): #gilbert_x and gilbert_y should have the same dimension
+                         self.image_gilbert1d_hls_global_threshold[x, 0] = self.image_hls_global_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_hls_global_threshold[x, 1] = self.image_hls_global_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_hls_global_threshold[x, 2] = self.image_hls_global_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                         
+                         self.image_gilbert1d_hls_local_threshold[x, 0] = self.image_hls_local_threshold[gilbert_y[x], gilbert_x[x], 0]
+                         self.image_gilbert1d_hls_local_threshold[x, 1] = self.image_hls_local_threshold[gilbert_y[x], gilbert_x[x], 1]
+                         self.image_gilbert1d_hls_local_threshold[x, 2] = self.image_hls_local_threshold[gilbert_y[x], gilbert_x[x], 2]                 
+                 
+                except AttributeError:
+                     print ("No thresholded image in HLS color space")
+                     pass            
 
-#%% rechecking HSL color space
-if __name__ == '__main__':
-    image = skimage.io.imread("helix_nebula_test.jpg") #check with cv instead of skimage
-    image = skimage.transform.resize(image, (88,88))
-    image *= 255 #conversion to uint8
-    image = image.astype('uint8')
-    
-    image_hls = cv.cvtColor(image, cv.COLOR_RGB2HLS) #check the coordinate again tho
-    
 
 

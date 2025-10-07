@@ -8,6 +8,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+# import scipy.signal as sig
 
 #importing image reader module
 import sys
@@ -17,6 +18,7 @@ from Image_Sonification.Reader import Image_read
 from Image_Sonification.Oscillator_simple import Oscillator
 from Image_Sonification.Oscillator_simple import frequency_gen
 from Image_Sonification.Oscillator_simple import generate_sample
+from Image_Sonification.Oscillator_simple import saturation_lowpass
 
 
 
@@ -26,8 +28,8 @@ os.chdir('D:/Documents/__Projects/Image_testing/')
 #%% sonifying check
 
 if __name__ == '__main__':
-    # test_image = Image_read("helix_nebula_test.jpg")
-    test_image = Image_read("Saturn.png")
+    test_image = Image_read("helix_nebula_test.jpg")
+    # test_image = Image_read("Saturn.png")
     hls_image = test_image.image_hls
     
     # plt.imshow(hls_image)
@@ -39,8 +41,9 @@ if __name__ == '__main__':
     hls_threshold_local = test_image.image_hls_local_threshold
     hls_threshold_global = test_image.image_hls_global_threshold
     
-    # plt.imshow(hls_threshold_local)
-    # plt.show()
+    plt.imshow(test_image.image_rgb_local_threshold)
+    # plt.imshow(test_image.image_rgb_global_threshold, alpha=0.3)
+    plt.show()
     
     
     hue_threshold_local = hls_threshold_local[:, :, 0]
@@ -60,7 +63,7 @@ if __name__ == '__main__':
 
     
     sample_rate = 44100
-    time = 0.1 #(0.1 second for each ) horizontal pixel (try this with bpm later)
+    time = 0.25 #(0.1 second for each ) horizontal pixel (try this with bpm later)
     total_wave_unnorm = np.zeros(int(sample_rate*time*len(hue_threshold_local[0])))
     total_wave_norm = np.zeros(int(sample_rate*time*len(hue_threshold_local[0])))
     # duty_check = np.zeros(0)
@@ -78,22 +81,32 @@ if __name__ == '__main__':
                 duty = 0.5-(hue_threshold_local[h, w]/(2*150))
             elif hue_threshold_local[h, w]>150:
                 duty = ((hue_threshold_local[h, w]-150)/(2*30))
+                
+            #need trick, if lightness value = 0, then just generate 0 value immediately!
+            # hopefully quicken the generator -> something's different... phase?
+            if lightness_threshold_local[h,w] == 0: #change to switch?
+                gen_points_unnorm = np.zeros(int(sample_rate*time))
+                gen_points_norm = np.zeros(int(sample_rate*time))
+                init_phase = 0 
             
+            else:
             #unnormalized
-            sq_gen_unnorm = Oscillator(waveform='square', freq=freq_list[h], rate=44100, duty=duty, phase=init_phase)
-            gen_points_unnorm = np.array(generate_sample(sq_gen_unnorm, time=time)) 
-            gen_points_unnorm = (gen_points_unnorm)*lightness_threshold_local[h, w]
+                sq_gen_unnorm = Oscillator(waveform='square', freq=freq_list[h], rate=44100, duty=duty, phase=init_phase)
+                gen_points_unnorm = np.array(generate_sample(sq_gen_unnorm, time=time))
+                gen_points_unnorm = saturation_lowpass(gen_points_unnorm, saturation_threshold_local[h, w], freq_list[h])
+                gen_points_unnorm = (gen_points_unnorm)*lightness_threshold_local[h, w]
             # init_phase = sq_gen_unnorm.phase # should be the same with normalized and non-normalized
             
+            
+                #normalized
+                sq_gen_norm = Oscillator(waveform='square_norm', freq=freq_list[h], rate=44100, duty=duty, phase=init_phase)
+                gen_points_norm = np.array(generate_sample(sq_gen_norm, time=time)) 
+                gen_points_norm = saturation_lowpass(gen_points_norm, saturation_threshold_local[h, w], freq_list[h])
+                gen_points_norm = (gen_points_norm)*lightness_threshold_local[h, w]
+                
+                init_phase = sq_gen_unnorm.phase # should be the same with normalized and non-normalized
+            
             generator_arr_unnorm = np.concatenate((generator_arr_unnorm, gen_points_unnorm), axis=None)
-            
-            #normalized
-            sq_gen_norm = Oscillator(waveform='square_norm', freq=freq_list[h], rate=44100, duty=duty, phase=init_phase)
-            gen_points_norm = np.array(generate_sample(sq_gen_norm, time=time)) 
-            gen_points_norm = (gen_points_norm)*lightness_threshold_local[h, w]
-            
-            init_phase = sq_gen_unnorm.phase # should be the same with normalized and non-normalized
-            
             generator_arr_norm = np.concatenate((generator_arr_norm, gen_points_norm), axis=None)
         
         total_wave_unnorm = total_wave_unnorm+generator_arr_unnorm
@@ -121,13 +134,12 @@ if __name__ == '__main__':
     
         wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
 
-    wave_to_file(total_wave_unnorm, fname='image_test_saturn_unnormalized')
-    wave_to_file(total_wave_norm, fname='image_test_saturn_normalized')
+    wave_to_file(total_wave_unnorm, fname='image_test_helix_unnormalized_lowpass_saturation')
+    wave_to_file(total_wave_norm, fname='image_test_helix_normalized_lowpass_saturation')
         
     
     
-#%%
-#duty check
+#%% duty check
 
 # if __name__ == "__main__":
 #     sample_rate = 44100
@@ -151,24 +163,6 @@ if __name__ == '__main__':
 #     plt.plot(total_wave)
 #     plt.show()
 
-#%% sound_check
-# if __name__ == "__main__":
-#     from scipy.io import wavfile
-#     sample_rate = 44100
-#     duty_val = np.linspace(0, 0.5, 100) #0.01 duty cycle sweep
-#     time = 0.1
-#     generator_arr = np.zeros(0)
-#     total_wave = np.zeros(int(sample_rate*time))
-    
-#     for vals in duty_val:
-#         sq_gen = Oscillator(waveform='square', freq=440, rate=44100, duty=vals, phase=0)#start
-#         gen_points = np.array(generate_sample(sq_gen, time=time)) 
-            
-#         generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
-#         # total_wave += gen_points
-    
-#     # total_wave = total_wave/np.max(abs(total_wave))
-
 #     to_16 = lambda wav, amp: np.int16(wav * amp * (2**15 - 1))
 #     def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
 #         wav = np.array(wav)
@@ -182,7 +176,81 @@ if __name__ == '__main__':
 
 #     wave_to_file(generator_arr, fname='wave_check_duty_cycle_05')
 #     # wave_to_file(total_wave, fname='wave_check_duty_cycle_addition_0.5')
+
+
+#%% sound_check
+if __name__ == "__main__":
+    from scipy.io import wavfile
+    sample_rate = 44100
+    duty_val = np.linspace(0, 0.5, 100) #0.01 duty cycle sweep
+    time = 0.1
+    generator_arr = np.zeros(0)
+    total_wave = np.zeros(int(sample_rate*time))
     
+    for vals in duty_val:
+        sq_gen = Oscillator(waveform='square', freq=440, rate=44100, duty=vals, phase=0)#start
+        gen_points = np.array(generate_sample(sq_gen, time=time)) 
+            
+        generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
+        # total_wave += gen_points
+    
+    plt.plot(generator_arr)
+    plt.show()
+
+    to_16 = lambda wav, amp: np.int16(wav * amp * (2**15 - 1))
+    def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
+        wav = np.array(wav)
+        wav = to_16(wav, amp)
+        if wav2 is not None:
+            wav2 = np.array(wav2)
+            wav2 = to_16(wav2, amp)
+            wav = np.stack([wav, wav2]).T
+    
+        wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
+
+    wave_to_file(generator_arr, fname='__square_duty_cycle_check')
+    
+
+#%% FFT check
+if __name__ == '__main__':
+    
+    from scipy.fft import fft
+    from scipy.fft import fftfreq
+    from scipy.fft import fftshift
+    import matplotlib.pyplot as plt
+    
+    sample_rate = 44100
+    time = 1
+    generator_arr = np.zeros(0)
+    total_wave = np.zeros(int(sample_rate*time))
+    
+    duty_test = 0.5
+    gen1 = Oscillator(waveform = 'square_norm', freq = 440, rate = sample_rate, duty = duty_test, phase=0)
+    gen_points = np.array(generate_sample(gen1, time=time))
+    
+    
+    
+    lowpass = saturation_lowpass(gen_points, 0.01, 440)
+    #@ high frequency, be careful of the error Digital filter critical frequencies must be 0 < Wn < fs/2 (fs=44100.0 -> fs/2=22050.0)
+    # need some way to trigger high frequency with low saturation
+    #limit to only 1250?
+    
+    
+    gen1_fft = fft(lowpass, len(gen_points))
+    gen1_fft = fftshift(gen1_fft)
+    gen1_fft = np.abs(gen1_fft)
+    gen1_fft = gen1_fft / np.max(gen1_fft)
+    x_freq = np.linspace(-1/2*sample_rate, 1/2*sample_rate, len(gen_points))
+    plt.plot(x_freq, np.sqrt(gen1_fft)) #reduce the scale of gen1_fft
+    # plt.yscale('log')
+    plt.xlim(0, 1/2*sample_rate)
+    # plt.xlim(0, 1000)
+    
+    plt.show()
+    
+
+
+
     
 #%% draw array
 if __name__ == "__main__":
@@ -268,8 +336,8 @@ if __name__ == "__main__":
     
         wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
 
-    wave_to_file(total_wave_unnorm, fname='squarewave_test_unnormalized')
-    wave_to_file(total_wave_norm, fname='squarewave_test_normalized')
+    # wave_to_file(total_wave_unnorm, fname='squarewave_test_unnormalized')
+    # wave_to_file(total_wave_norm, fname='squarewave_test_normalized')
     # wave_to_file(total_wave, fname='wave_check_duty_cycle_addition_0.5')
     
     

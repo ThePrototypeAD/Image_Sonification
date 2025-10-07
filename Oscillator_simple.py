@@ -6,9 +6,11 @@ Created on Wed Sep 17 17:01:57 2025
 """
 
 import numpy as np
+import scipy.signal as sig
+from scipy.io import wavfile
 from IPython.display import display
 
-#%%
+#  waveform related function
 class Oscillator:               #skeleton 
     def __init__(self, waveform='sine', freq=440, rate=44100, duty=0.5, phase=0.0): #phase 0-1, 
         self.freq = freq
@@ -135,7 +137,32 @@ def frequency_gen (tuning_freq = 440,      # base tuning frequency
         return result_freq[::-1]
     else : 
         return result_freq
+    
+    
+#todo -> saturation - low pass filter
+# propotional value, high saturation = higher filter -> hopefully more coherent
+# speaking of which, check non-linear duty value.
+# eyes are perceiving logarithmic, perhaps do the same with audio?
+def saturation_lowpass (sample, saturation, frequency, order = 5, sampling_rate = 44100):
+    #opencv saturation gives 0-255 integer value -> already normalized to 0-1
+    try:
+        harmonic_pass = (1/saturation) #higher saturation = greater filter, at 1 = pure sine wave is expected
+        # too strong!
+        frequency_pass = harmonic_pass*frequency #warning, higher frequency can't pass this...
+        # solution, frequency limiter? 250 - 1250 (see Trayford et al)
+    
+        b, a = sig.butter(order, frequency_pass, btype='low', analog=False, fs=sampling_rate)
+        filtered = sig.lfilter(b, a, sample)
+        return filtered
+    
+    except (ZeroDivisionError): #no filter if saturation = 0
+        return sample
+    except ValueError:
+        print (f'filter frequency ({frequency_pass}Hz) exceeds Nyquist frequency ({sampling_rate/2}Hz)')
+        return sample
 
+
+# sound-generating function
 
 def generate_sample (osc, sample_rate = 44100, time = 1): 
         # generate sample for the oscillator
@@ -147,6 +174,21 @@ def generate_sample (osc, sample_rate = 44100, time = 1):
         if not hasattr(osc, '__next__'):
             osc = iter(osc)
         return [next(osc) for _ in range(int(sample_rate*time))]
+
+def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
+    to_16 = lambda wav, amp: np.int16(wav * amp * (2**15 - 1))
+    wav = np.array(wav)
+    wav = to_16(wav, amp)
+    if wav2 is not None: #for stereo
+        wav2 = np.array(wav2)
+        wav2 = to_16(wav2, amp)
+        wav = np.stack([wav, wav2]).T
+    wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
+        
+
+# display generation (mostly for audio display)
+
+
 
 
 
