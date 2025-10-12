@@ -224,8 +224,8 @@ if __name__ == '__main__':
     generator_arr = np.zeros(0)
     total_wave = np.zeros(int(sample_rate*time))
     
-    duty_test = 0.5
-    gen1 = Oscillator(waveform = 'square_norm', freq = 440, rate = sample_rate, duty = duty_test, phase=0)
+    duty_test = 0.25
+    gen1 = Oscillator(waveform = 'square_norm', freq = 100, rate = sample_rate, duty = duty_test, phase=0)
     gen_points = np.array(generate_sample(gen1, time=time))
     
     
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     x_freq = np.linspace(-1/2*sample_rate, 1/2*sample_rate, len(gen_points))
     plt.plot(x_freq, np.sqrt(gen1_fft)) #reduce the scale of gen1_fft
     # plt.yscale('log')
-    plt.xlim(0, 1/2*sample_rate)
+    # plt.xlim(0, 500)
     # plt.xlim(0, 1000)
     
     plt.show()
