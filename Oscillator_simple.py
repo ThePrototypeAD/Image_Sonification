@@ -8,7 +8,6 @@ Created on Wed Sep 17 17:01:57 2025
 import numpy as np
 import scipy.signal as sig
 from scipy.io import wavfile
-from IPython.display import display
 
 #  waveform related function
 class Oscillator:               #skeleton 
@@ -143,23 +142,57 @@ def frequency_gen (tuning_freq = 440,      # base tuning frequency
 # propotional value, high saturation = higher filter -> hopefully more coherent
 # speaking of which, check non-linear duty value.
 # eyes are perceiving logarithmic, perhaps do the same with audio?
-def saturation_lowpass (sample, saturation, frequency, order = 5, sampling_rate = 44100):
-    #opencv saturation gives 0-255 integer value -> already normalized to 0-1
+
+
+# SATURATION LOWPASS IS DEPRECATED!
+# def saturation_lowpass (sample, saturation, frequency, order = 5, sampling_rate = 44100):
+#     #opencv saturation gives 0-255 integer value -> already normalized to 0-1
+#     try:
+#         harmonic_pass = (1/saturation) #higher saturation = greater filter, at 1 = pure sine wave is expected
+#         # too strong!
+#         frequency_pass = harmonic_pass*frequency #warning, higher frequency can't pass this...
+#         # solution, frequency limiter? 250 - 1250 (see Trayford et al)
+    
+#         b, a = sig.butter(order, frequency_pass, btype='low', analog=False, fs=sampling_rate)
+#         filtered = sig.lfilter(b, a, sample)
+#         return filtered
+    
+#     except (ZeroDivisionError): #no filter if saturation = 0
+#         return sample
+#     except ValueError:
+#         print (f'filter frequency ({frequency_pass}Hz) exceeds Nyquist frequency ({sampling_rate/2}Hz)')
+#         return sample
+
+
+#change the saturation to the companying oscillator (or perhaps put an LFO?)
+# depending on how fast the sample, we need lesser LFO
+def saturation_frequency (saturation, base_frequency, freq_arr, power = 1):
+    #saturation is from 0 to 1, limit to 50 cents
+    # freq_arr is guaranteed 1 dimension array
+    
+    freq_arr_index = np.argwhere(freq_arr == base_frequency)
+    freq_arr_index = freq_arr_index[0]
+    freq_arr_index = freq_arr_index[0]
     try:
-        harmonic_pass = (1/saturation) #higher saturation = greater filter, at 1 = pure sine wave is expected
-        # too strong!
-        frequency_pass = harmonic_pass*frequency #warning, higher frequency can't pass this...
-        # solution, frequency limiter? 250 - 1250 (see Trayford et al)
+        freq_ratio = base_frequency/freq_arr[freq_arr_index+1]
+    except IndexError: #should be fine in an equal temprament, but unequal temprament will introduce some jank
+        freq_ratio = freq_arr[freq_arr_index-1]/base_frequency 
     
-        b, a = sig.butter(order, frequency_pass, btype='low', analog=False, fs=sampling_rate)
-        filtered = sig.lfilter(b, a, sample)
-        return filtered
+    function_constant = (freq_ratio-1)*0.5 # -> limit at 50 cents, 
+    # 1+fx constant = 50 cents of interval
+    # todo: See how different cents affect different sound perception
     
-    except (ZeroDivisionError): #no filter if saturation = 0
-        return sample
-    except ValueError:
-        print (f'filter frequency ({frequency_pass}Hz) exceeds Nyquist frequency ({sampling_rate/2}Hz)')
-        return sample
+    
+    # anchor form = a(x^n)+a+1 = keeps the 1 saturation to 1, a is function of frequency ratio
+    # anchor at (1, 1) -> Saturation of 1 = 1 
+    
+    sub_ratio = -function_constant*(np.power(saturation, power))+function_constant+1
+        #limit to half of ratio -> invert the freq to get upper frequency
+        
+    sub_frequency = (base_frequency*sub_ratio)
+    
+    return sub_frequency
+
 
 
 # sound-generating function
@@ -194,104 +227,120 @@ def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
 
 #%%
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
     
-    def getval_np2(osc, count=44100): #generate 1 second sample by default
-        # Check if osc is callable (function), else assume iterator
-        if callable(osc):
-            return [osc() for _ in range(count)]
-        else:
-            # osc is iterator or iterable
-            if not hasattr(osc, '__next__'):
-                osc = iter(osc)
-            return [next(osc) for _ in range(count)]
+    test_freq_arr = frequency_gen()
     
-    points = int(44100/5)
+    test_freq = test_freq_arr[28]
     
-    test_square1 = Oscillator(waveform='square', freq=12, rate=44100, duty=0.5, phase=0.0)#start
-    s1 = getval_np2(test_square1, count=points)[:points]
+    index = np.argwhere(test_freq_arr == test_freq)
+    index = index[0]
+    index = index[0]
     
-    test_square2 = Oscillator(waveform='square', freq=12, rate=44100, duty=0.5, phase=test_square1.phase)#start
-    s2 = getval_np2(test_square2, count=points)[:points]
+    print(index)
     
-    s_all = np.concatenate((s1, s2), axis=None)
-    plt.plot(s_all)
-    plt.show()
+    sub_freq = saturation_frequency(0, test_freq, test_freq_arr)
+    
+    print(sub_freq/44100)
+    print(test_freq_arr[28])
+    
+    # import matplotlib.pyplot as plt
+    
+    # def getval_np2(osc, count=44100): #generate 1 second sample by default
+    #     # Check if osc is callable (function), else assume iterator
+    #     if callable(osc):
+    #         return [osc() for _ in range(count)]
+    #     else:
+    #         # osc is iterator or iterable
+    #         if not hasattr(osc, '__next__'):
+    #             osc = iter(osc)
+    #         return [next(osc) for _ in range(count)]
+    
+    # points = int(44100/5)
+    
+    # test_square1 = Oscillator(waveform='square', freq=12, rate=44100, duty=0.5, phase=0.0)#start
+    # s1 = getval_np2(test_square1, count=points)[:points]
+    
+    # test_square2 = Oscillator(waveform='square', freq=12, rate=44100, duty=0.5, phase=test_square1.phase)#start
+    # s2 = getval_np2(test_square2, count=points)[:points]
+    
+    # s_all = np.concatenate((s1, s2), axis=None)
+    # plt.plot(s_all)
+    # plt.show()
 
     
-    from tqdm import tqdm 
+    # from tqdm import tqdm 
     
-    #modifying getval function
-    def getval_np1(osc, count=44100):
-        if not hasattr(osc, '__next__'):
-            osc = iter(osc)
-        return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
+    # #modifying getval function
+    # def getval_np1(osc, count=44100):
+    #     if not hasattr(osc, '__next__'):
+    #         osc = iter(osc)
+    #     return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
     
-    def getval_np(osc, count=44100, it=False):
-        if it: osc = iter(osc)
-        return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
+    # def getval_np(osc, count=44100, it=False):
+    #     if it: osc = iter(osc)
+    #     return np.fromiter((next(osc) for _ in range(count)), dtype=np.float32)
     
-    def getval_np2(osc, count=44100):
-        # Check if osc is callable (function), else assume iterator
-        if callable(osc):
-            return [osc() for _ in range(count)]
-        else:
-            # osc is iterator or iterable
-            if not hasattr(osc, '__next__'):
-                osc = iter(osc)
-            return [next(osc) for _ in range(count)]
+    # def getval_np2(osc, count=44100):
+    #     # Check if osc is callable (function), else assume iterator
+    #     if callable(osc):
+    #         return [osc() for _ in range(count)]
+    #     else:
+    #         # osc is iterator or iterable
+    #         if not hasattr(osc, '__next__'):
+    #             osc = iter(osc)
+    #         return [next(osc) for _ in range(count)]
     
-    #checking benchmark
-    
-    
+    # #checking benchmark
     
     
     
-    #initialize the array
-    wave_point = int(44100/10) #0.1 seconds for each sample
-    generator_arr = np.zeros(0)
     
-    def getval_np2(osc, count=44100): #generate 1 second sample by default
-            # Check if osc is callable (function), else assume iterator
-            if callable(osc):
-                return [osc() for _ in range(count)]
-            else:
-                # osc is iterator or iterable
-                if not hasattr(osc, '__next__'):
-                    osc = iter(osc)
-                return [next(osc) for _ in range(count)]
+    
+    # #initialize the array
+    # wave_point = int(44100/10) #0.1 seconds for each sample
+    # generator_arr = np.zeros(0)
+    
+    # def getval_np2(osc, count=44100): #generate 1 second sample by default
+    #         # Check if osc is callable (function), else assume iterator
+    #         if callable(osc):
+    #             return [osc() for _ in range(count)]
+    #         else:
+    #             # osc is iterator or iterable
+    #             if not hasattr(osc, '__next__'):
+    #                 osc = iter(osc)
+    #             return [next(osc) for _ in range(count)]
         
-    points = int(44100/10)
+    # points = int(44100/10)
     
-    hue_arr = np.linspace(0, 180, num=360) #using the cv2 hue calculation, 0-180
+    # hue_arr = np.linspace(0, 180, num=360) #using the cv2 hue calculation, 0-180
     
-    duty_arr = np.zeros_like(hue_arr)
+    # duty_arr = np.zeros_like(hue_arr)
     
-    for i in range(len(duty_arr)):
-        if hue_arr[i]<=150: 
-            duty_arr[i] = (-hue_arr[i]/(2*150))+0.5
-        elif hue_arr[i]>150:
-            duty_arr[i] = ((hue_arr[i]-150)/(2*30))
-    
-    
+    # for i in range(len(duty_arr)):
+    #     if hue_arr[i]<=150: 
+    #         duty_arr[i] = (-hue_arr[i]/(2*150))+0.5
+    #     elif hue_arr[i]>150:
+    #         duty_arr[i] = ((hue_arr[i]-150)/(2*30))
     
     
-    #make the 0.5 = red, 
-    init_phase = 0
     
-    for i in tqdm(range(len(duty_arr))):
     
-        gen = Oscillator(waveform='square', freq=440, rate=44100, duty=duty_arr[i], phase=init_phase)#start
-        gen_points = (getval_np2(gen)[:wave_point]) 
-        init_phase = gen.phase
+    # #make the 0.5 = red, 
+    # init_phase = 0
+    
+    # for i in tqdm(range(len(duty_arr))):
+    
+    #     gen = Oscillator(waveform='square', freq=440, rate=44100, duty=duty_arr[i], phase=init_phase)#start
+    #     gen_points = (getval_np2(gen)[:wave_point]) 
+    #     init_phase = gen.phase
         
-            # generating points for gen is slow... -> generator itself is kinda slow... time to optimize this to my use
-            # square oscillation is slow!
+    #         # generating points for gen is slow... -> generator itself is kinda slow... time to optimize this to my use
+    #         # square oscillation is slow!
     
-        generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
+    #     generator_arr = np.concatenate((generator_arr, gen_points), axis=None)
     
-    wave_to_file(generator_arr, fname='check1_chatgpt') #this is correct
-    # todo : employ low pass filter
+    # wave_to_file(generator_arr, fname='check1_chatgpt') #this is correct
+    # # todo : employ low pass filter
     
     
     
