@@ -9,7 +9,7 @@ import numpy as np
 import scipy.signal as sig
 from scipy.io import wavfile
 
-#  waveform related function
+#%%  Oscillator Skeleton
 class Oscillator:               #skeleton 
     def __init__(self, waveform='sine', freq=440, rate=44100, duty=0.5, phase=0.0): #phase 0-1, 
         self.freq = freq
@@ -53,8 +53,7 @@ class Oscillator:               #skeleton
 
 
 
-
-
+#%% frequency generator
 def frequency_gen (tuning_freq = 440,      # base tuning frequency
                    tuning_ratio = None,    # use this custom tuning, if kept Nonetype, proceed to equal temperament accepts array!
                    tones = 12,             # how many keys are in an octave
@@ -137,33 +136,71 @@ def frequency_gen (tuning_freq = 440,      # base tuning frequency
     else : 
         return result_freq
     
+
+#%% hue to duty functions
+
+#auxiliary fxs
+#inside the cutoff
+def duty_res1 (hue_input, cutoff_high, cutoff_low, constant):
+    return ((cutoff_high-hue_input)*constant)/(cutoff_high - cutoff_low)
     
-#todo -> saturation - low pass filter
-# propotional value, high saturation = higher filter -> hopefully more coherent
-# speaking of which, check non-linear duty value.
-# eyes are perceiving logarithmic, perhaps do the same with audio?
+#outside the cutoff
+def duty_res2 (hue_input, cutoff_high, cutoff_low, constant, max_val=360):
+    return (-(cutoff_high-hue_input)*constant)/(max_val-(cutoff_high - cutoff_low))
 
 
-# SATURATION LOWPASS IS DEPRECATED!
-# def saturation_lowpass (sample, saturation, frequency, order = 5, sampling_rate = 44100):
-#     #opencv saturation gives 0-255 integer value -> already normalized to 0-1
-#     try:
-#         harmonic_pass = (1/saturation) #higher saturation = greater filter, at 1 = pure sine wave is expected
-#         # too strong!
-#         frequency_pass = harmonic_pass*frequency #warning, higher frequency can't pass this...
-#         # solution, frequency limiter? 250 - 1250 (see Trayford et al)
+#define function while outside of hue range
+def hue_to_duty (hue_input, 
+                   hue_cutoff_low, 
+                   hue_cutoff_high,
+                   hue_max = 360, 
+                   duty_min = 0, 
+                   duty_max = 50, 
+                   poly_degree_1=1, 
+                   poly_degree_2=1, 
+                   invert = False):
+
+
+    #start the trick
+    hue_calculate = hue_input.copy()
+
+    try: #default calculation for nonarray input
+        #if hue lower than low cutoff, not, wrap the value as if + hue_max
+        hue_calculate = hue_calculate + hue_max if hue_calculate < hue_cutoff_low else hue_calculate
     
-#         b, a = sig.butter(order, frequency_pass, btype='low', analog=False, fs=sampling_rate)
-#         filtered = sig.lfilter(b, a, sample)
-#         return filtered
+        if hue_calculate <= hue_cutoff_high:
+            constant_poly = np.power((duty_max - duty_min), 1/poly_degree_1)
+            duty_val = np.power(duty_res1(hue_calculate, hue_cutoff_high, hue_cutoff_low, constant_poly), poly_degree_1)
     
-#     except (ZeroDivisionError): #no filter if saturation = 0
-#         return sample
-#     except ValueError:
-#         print (f'filter frequency ({frequency_pass}Hz) exceeds Nyquist frequency ({sampling_rate/2}Hz)')
-#         return sample
+        else: 
+            constant_poly = np.power((duty_max - duty_min), 1/poly_degree_2)
+            duty_val = np.power(duty_res2(hue_calculate, hue_cutoff_high, hue_cutoff_low, constant_poly, hue_max), poly_degree_2)
 
 
+    
+    except ValueError:        #if array
+        for i in range(len (hue_calculate)):
+            hue_calculate[i] = hue_calculate[i] + hue_max if (hue_calculate[i] <hue_cutoff_low) else hue_calculate[i]
+    
+        constant_poly1 = np.power((duty_max - duty_min), 1/poly_degree_1)
+        constant_poly2 = np.power((duty_max - duty_min), 1/poly_degree_2)
+    
+        duty_val = np.where(hue_calculate <= hue_cutoff_high, \
+                            (np.power(duty_res1(hue_calculate, hue_cutoff_high, hue_cutoff_low, constant_poly1), poly_degree_1)),
+                            (np.power(duty_res2(hue_calculate, hue_cutoff_high, hue_cutoff_low, constant_poly2, hue_max), poly_degree_2)))
+
+    
+    if invert:
+        return -(duty_val+duty_min) + duty_max
+    else:
+        return duty_val+duty_min
+
+
+#%% saturation field
+
+
+    
+#todo -> saturation - not low pass... but check various ideas...
 #change the saturation to the companying oscillator (or perhaps put an LFO?)
 # depending on how fast the sample, we need lesser LFO
 def saturation_frequency (saturation, base_frequency, freq_arr, power = 1):

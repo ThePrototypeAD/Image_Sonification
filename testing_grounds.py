@@ -18,7 +18,7 @@ from Image_Sonification.Reader import Image_read
 from Image_Sonification.Oscillator_simple import Oscillator
 from Image_Sonification.Oscillator_simple import frequency_gen
 from Image_Sonification.Oscillator_simple import generate_sample
-from Image_Sonification.Oscillator_simple import saturation_lowpass
+# from Image_Sonification.Oscillator_simple import saturation_lowpass
 
 
 
@@ -141,41 +141,41 @@ if __name__ == '__main__':
     
 #%% duty check
 
-# if __name__ == "__main__":
-#     sample_rate = 44100
-#     duty_val = np.linspace(0, 0.5, 20) 
-#         #wide duty cycle (>0.5) might be needed as well...
-#         # consider the sound, tho...
-#         # with the normalized square wave, unsure...
+if __name__ == "__main__":
+    sample_rate = 44100
+    duty_val = [0.1, 0.25, 0.5] 
+        #wide duty cycle (>0.5) might be needed as well...
+        # consider the sound, tho...
+        # with the normalized square wave, unsure...
         
-#         #again, test the sound!!!
-#     time = 0.1
-#     total_wave = np.zeros(int(sample_rate*time))
+        #again, test the sound!!!
+    time = 0.1
+    total_wave = np.zeros(int(sample_rate*time))
     
-#     for vals in duty_val:
-#         square_1 = Oscillator(waveform='square_norm', freq=100, rate=44100, duty=vals, phase=0)
-#         wave_points = np.array(generate_sample(square_1, time=time)) 
+    for vals in duty_val:
+        square_1 = Oscillator(waveform='square_norm', freq=100, rate=44100, duty=vals, phase=0.5)
+        wave_points = np.array(generate_sample(square_1, time=time)) 
         
-#         plt.plot(wave_points, alpha=0.3)
-#         total_wave += wave_points
+        plt.plot(wave_points, alpha=0.5)
+        total_wave += wave_points
     
-#     total_wave = total_wave / np.max(abs(total_wave))
-#     plt.plot(total_wave)
-#     plt.show()
+    # total_wave = total_wave / np.max(abs(total_wave))
+    # plt.plot(total_wave)
+    plt.show()
 
-#     to_16 = lambda wav, amp: np.int16(wav * amp * (2**15 - 1))
-#     def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
-#         wav = np.array(wav)
-#         wav = to_16(wav, amp)
-#         if wav2 is not None:
-#             wav2 = np.array(wav2)
-#             wav2 = to_16(wav2, amp)
-#             wav = np.stack([wav, wav2]).T
+    to_16 = lambda wav, amp: np.int16(wav * amp * (2**15 - 1))
+    def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
+        wav = np.array(wav)
+        wav = to_16(wav, amp)
+        if wav2 is not None:
+            wav2 = np.array(wav2)
+            wav2 = to_16(wav2, amp)
+            wav = np.stack([wav, wav2]).T
     
-#         wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
+        wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
 
-#     wave_to_file(generator_arr, fname='wave_check_duty_cycle_05')
-#     # wave_to_file(total_wave, fname='wave_check_duty_cycle_addition_0.5')
+    # wave_to_file(generator_arr, fname='wave_check_duty_cycle_05')
+    # wave_to_file(total_wave, fname='wave_check_duty_cycle_addition_0.5')
 
 
 #%% sound_check
