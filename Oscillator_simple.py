@@ -191,9 +191,11 @@ def hue_to_duty (hue_input,
 
     
     if invert:
-        return -(duty_val+duty_min) + duty_max
+        duty_result = -(duty_val+duty_min) + duty_max
     else:
-        return duty_val+duty_min
+        duty_result = duty_val+duty_min
+        
+    return duty_result/100 #convert to percent
 
 
 #%% saturation field
@@ -215,7 +217,7 @@ def saturation_frequency (saturation, base_frequency, freq_arr, power = 1):
     except IndexError: #should be fine in an equal temprament, but unequal temprament will introduce some jank
         freq_ratio = freq_arr[freq_arr_index-1]/base_frequency 
     
-    function_constant = (freq_ratio-1)*0.5 # -> limit at 50 cents, 
+    function_constant = (freq_ratio-1)*0.5 # -> limit at 50 cents, scaled from next frequency ratio
     # 1+fx constant = 50 cents of interval
     # todo: See how different cents affect different sound perception
     
@@ -232,7 +234,7 @@ def saturation_frequency (saturation, base_frequency, freq_arr, power = 1):
 
 
 
-# sound-generating function
+#%% sound-generating function
 
 def generate_sample (osc, sample_rate = 44100, time = 1): 
         # generate sample for the oscillator
@@ -256,7 +258,7 @@ def wave_to_file(wav, wav2=None, fname="temp", amp=0.1):
     wavfile.write(f"D:\Documents\__Projects\sound_test\{fname}.wav", 44100, wav)
         
 
-# display generation (mostly for audio display)
+#%% utils
 
 
 
