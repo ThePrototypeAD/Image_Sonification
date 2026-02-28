@@ -94,9 +94,9 @@ def frequency_gen (tuning_freq = 440,      # base tuning frequency
     
     if isinstance(tuning_ratio, (list, np.ndarray)): #check if tuning ratio is provided in the type of list or nd.array
         if messages:
-            tuning_ratio = np.array(tuning_ratio).astype(float)
             print ('using provided tuning ratio = ', tuning_ratio)
             print()
+        tuning_ratio = np.array(tuning_ratio).astype(float)
         
         if len(tuning_ratio) < 2 or np.max(tuning_ratio)>=2 or np.min(tuning_ratio)<1:
             return print('Tuning ratio provided but is invalid. Check the tuning ratio')
